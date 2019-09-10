@@ -161,8 +161,8 @@ func NewControl(rc *controller.ResourceController, pxyManager *proxy.ProxyManage
 		writerShutdown:  shutdown.New(),
 		managerShutdown: shutdown.New(),
 		allShutdown:     shutdown.New(),
-		inLimit:         rate.NewLimiter(rate.Limit(inLimit*limit.KB), int(inLimit*limit.KB)),
-		outLimit:        rate.NewLimiter(rate.Limit(outLimit*limit.KB), int(outLimit*limit.KB)),
+		inLimit:         rate.NewLimiter(rate.Limit(inLimit*limit.KB), limit.BurstLimit),
+		outLimit:        rate.NewLimiter(rate.Limit(outLimit*limit.KB), limit.BurstLimit),
 	}
 }
 
@@ -175,6 +175,8 @@ func (ctl *Control) Start() {
 		Error:         "",
 	}
 	msg.WriteMsg(ctl.conn, loginRespMsg)
+	ctl.inLimit.AllowN(time.Now(), limit.BurstLimit)
+	ctl.outLimit.AllowN(time.Now(), limit.BurstLimit)
 
 	go ctl.writer()
 	for i := 0; i < ctl.poolCount; i++ {
