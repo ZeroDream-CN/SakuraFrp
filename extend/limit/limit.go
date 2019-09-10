@@ -17,7 +17,7 @@ const (
 	EB
 )
 
-const BurstLimit = 1024 * 1024 * 1024
+const BurstLimit = 16 * 1024
 
 type Conn struct {
 	frpNet.Conn
