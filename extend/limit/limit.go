@@ -2,6 +2,7 @@ package limit
 
 import (
 	"io"
+	"math"
 
 	frpNet "github.com/fatedier/frp/utils/net"
 	"golang.org/x/time/rate"
@@ -17,7 +18,7 @@ const (
 	EB
 )
 
-const BurstLimit = 16 * 1024
+const BurstLimit = math.MaxInt32
 
 type Conn struct {
 	frpNet.Conn
@@ -49,3 +50,5 @@ func (c Conn) Read(p []byte) (n int, err error) {
 func (c Conn) Write(p []byte) (n int, err error) {
 	return c.lw.Write(p)
 }
+
+type GetLimitConn func(frpNet.Conn) frpNet.Conn

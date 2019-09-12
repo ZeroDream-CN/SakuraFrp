@@ -175,8 +175,6 @@ func (ctl *Control) Start() {
 		Error:         "",
 	}
 	msg.WriteMsg(ctl.conn, loginRespMsg)
-	ctl.inLimit.AllowN(time.Now(), limit.BurstLimit)
-	ctl.outLimit.AllowN(time.Now(), limit.BurstLimit)
 
 	go ctl.writer()
 	for i := 0; i < ctl.poolCount; i++ {
@@ -428,9 +426,9 @@ func (ctl *Control) manager() {
 
 func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
 	var pxyConf config.ProxyConf
+	var getLimitConn limit.GetLimitConn
 
 	s, err := api.NewService(g.GlbServerCfg.ApiBaseUrl)
-	var workConn proxy.GetWorkConnFn = ctl.GetWorkConn
 
 	if err != nil {
 		return remoteAddr, err
@@ -455,18 +453,14 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 			return remoteAddr, fmt.Errorf("invalid proxy configuration")
 		}
 
-		workConn = func() (frpNet.Conn, error) {
-			fconn, err := ctl.GetWorkConn()
-			if err != nil {
-				return nil, err
-			}
-			return limit.NewLimitConnWithBucket(fconn, ctl.outLimit, ctl.inLimit), nil
+		getLimitConn = func(fconn frpNet.Conn) frpNet.Conn {
+			return limit.NewLimitConnWithBucket(fconn, ctl.outLimit, ctl.inLimit)
 		}
 	}
 
 	// NewProxy will return a interface Proxy.
 	// In fact it create different proxies by different proxy type, we just call run() here.
-	pxy, err := proxy.NewProxy(ctl.runId, ctl.rc, ctl.statsCollector, ctl.poolCount, workConn, pxyConf)
+	pxy, err := proxy.NewProxy(ctl.runId, ctl.rc, ctl.statsCollector, ctl.poolCount, ctl.GetWorkConn, pxyConf, getLimitConn)
 	if err != nil {
 		return remoteAddr, err
 	}

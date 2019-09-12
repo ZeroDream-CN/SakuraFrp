@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/extend/cumu"
+	"github.com/fatedier/frp/extend/limit"
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
@@ -54,6 +55,7 @@ type BaseProxy struct {
 	usedPortsNum   int
 	poolCount      int
 	getWorkConnFn  GetWorkConnFn
+	getLimitConn   limit.GetLimitConn
 
 	mu sync.RWMutex
 	log.Logger
@@ -139,6 +141,9 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, frpNet.Con
 					pxy.Info("listener is closed")
 					return
 				}
+				if pxy.getLimitConn != nil {
+					c = pxy.getLimitConn(c)
+				}
 				pxy.Debug("get a user connection [%s]", c.RemoteAddr().String())
 				go handler(p, c, pxy.statsCollector)
 			}
@@ -147,7 +152,7 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, frpNet.Con
 }
 
 func NewProxy(runId string, rc *controller.ResourceController, statsCollector stats.Collector, poolCount int,
-	getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf) (pxy Proxy, err error) {
+	getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf, getLimitConn limit.GetLimitConn) (pxy Proxy, err error) {
 
 	basePxy := BaseProxy{
 		name:           pxyConf.GetBaseInfo().ProxyName,
@@ -157,6 +162,7 @@ func NewProxy(runId string, rc *controller.ResourceController, statsCollector st
 		poolCount:      poolCount,
 		getWorkConnFn:  getWorkConnFn,
 		Logger:         log.NewPrefixLogger(runId),
+		getLimitConn:   getLimitConn,
 	}
 	switch cfg := pxyConf.(type) {
 	case *config.TcpProxyConf:
